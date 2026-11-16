@@ -1,0 +1,57 @@
+name: "Compilar La Cueva MultiStream Plugin"
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Permite compilar manualmente con un clic en GitHub
+
+jobs:
+  build-and-release:
+    name: "Compilar Instalador para Windows"
+    runs-on: windows-latest
+
+    steps:
+      - name: "Descargar Código Fuente"
+        uses: actions/checkout@v4
+
+      - name: "Instalar Framework Qt 6"
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.6.3'
+          arch: 'win64_msvc2019_64'
+          modules: 'qtbase'
+
+      - name: "Descargar SDK de OBS Studio"
+        shell: pwsh
+        run: |
+          Write-Host "Descargando entorno base de OBS Studio..."
+          Invoke-WebRequest -Uri "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2-Full-x64.zip" -OutFile "obs.zip"
+          Expand-Archive -Path "obs.zip" -DestinationPath "C:\obs-studio"
+          Write-Host "OBS Studio listo para enlazar."
+
+      - name: "Configurar con CMake"
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DQt6_DIR="${{ env.Qt6_DIR }}/lib/cmake/Qt6" `
+            -Dlibobs_DIR="C:/obs-studio/cmake"
+
+      - name: "Compilar DLL del Plugin"
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: "Generar Instalador Automático .exe (NSIS)"
+        shell: pwsh
+        run: |
+          makensis installer/installer.nsi
+          Write-Host "Instalador generado con éxito."
+
+      - name: "Publicar Instalador Propio de La Cueva"
+        uses: actions/upload-artifact@v4
+        with:
+          name: LaCuevaMultiStream_Instalador_x64
+          path: |
+            LaCuevaMultiStream_Installer_x64.exe
+            build/Release/lacueva-multistream.dll
