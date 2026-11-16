@@ -8,18 +8,26 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Encontrar dependencias de OBS
-find_package(libobs REQUIRED)
-find_package(obs-frontend-api REQUIRED)
-
 # Encontrar Qt (OBS 28+ utiliza Qt 6 por defecto)
-find_package(Qt6 COMPONENTS Core Widgets Gui QUIET)
-if(NOT Qt6_FOUND)
-    find_package(Qt5 COMPONENTS Core Widgets Gui REQUIRED)
-    set(QT_TARGET_LIBS Qt5::Core Qt5::Widgets Qt5::Gui)
-else()
-    set(QT_TARGET_LIBS Qt6::Core Qt6::Widgets Qt6::Gui)
+find_package(Qt6 COMPONENTS Core Widgets Gui REQUIRED)
+set(QT_TARGET_LIBS Qt6::Core Qt6::Widgets Qt6::Gui)
+
+# Ubicación del SDK de OBS Studio
+if(DEFINED ENV{OBS_SRC_DIR})
+    set(OBS_SRC_DIR $ENV{OBS_SRC_DIR})
+elseif(NOT DEFINED OBS_SRC_DIR)
+    set(OBS_SRC_DIR "C:/obs-studio-src")
 endif()
+
+if(DEFINED ENV{OBS_BIN_DIR})
+    set(OBS_BIN_DIR $ENV{OBS_BIN_DIR})
+elseif(NOT DEFINED OBS_BIN_DIR)
+    set(OBS_BIN_DIR "C:/obs-studio-bin/bin/64bit")
+endif()
+
+# Intentar find_package oficial primero; si no, usar SDK descargado
+find_package(libobs QUIET)
+find_package(obs-frontend-api QUIET)
 
 # Archivos fuente del plugin
 set(PLUGIN_SOURCES
@@ -45,7 +53,6 @@ set(PLUGIN_SOURCES
     src/ui/settings-dialog.cpp
 )
 
-# Definir la librería del módulo OBS
 add_library(lacueva-multistream MODULE ${PLUGIN_SOURCES})
 
 target_include_directories(lacueva-multistream PRIVATE
@@ -55,42 +62,38 @@ target_include_directories(lacueva-multistream PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
 )
 
-target_link_libraries(lacueva-multistream PRIVATE
-    OBS::libobs
-    OBS::obs-frontend-api
-    ${QT_TARGET_LIBS}
-)
-
-# Bibliotecas de plataforma específicas
-if(WIN32)
+if(TARGET OBS::libobs)
     target_link_libraries(lacueva-multistream PRIVATE
-        ws2_32
-        iphlpapi
-        dxgi
+        OBS::libobs
+        OBS::obs-frontend-api
+        ${QT_TARGET_LIBS}
     )
+else()
+    # Usar headers directos de OBS Studio
+    target_include_directories(lacueva-multistream PRIVATE
+        "${OBS_SRC_DIR}/libobs"
+        "${OBS_SRC_DIR}/UI/obs-frontend-api"
+    )
+
+    if(WIN32)
+        # Importar librerías de enlace dinámico de OBS
+        find_library(OBS_LIB NAMES obs obs.lib PATHS "${OBS_BIN_DIR}" "${OBS_SRC_DIR}/build/libobs/Release")
+        find_library(OBS_FRONTEND_LIB NAMES obs-frontend-api obs-frontend-api.lib PATHS "${OBS_BIN_DIR}" "${OBS_SRC_DIR}/build/UI/obs-frontend-api/Release")
+
+        target_link_libraries(lacueva-multistream PRIVATE
+            ${OBS_LIB}
+            ${OBS_FRONTEND_LIB}
+            ${QT_TARGET_LIBS}
+            ws2_32
+            iphlpapi
+            dxgi
+        )
+    endif()
+endif()
+
+if(WIN32)
     set_target_properties(lacueva-multistream PROPERTIES
         PREFIX ""
         SUFFIX ".dll"
     )
-elseif(APPLE)
-    set_target_properties(lacueva-multistream PROPERTIES
-        PREFIX ""
-        SUFFIX ".so"
-    )
-elseif(UNIX)
-    set_target_properties(lacueva-multistream PROPERTIES
-        PREFIX ""
-        SUFFIX ".so"
-    )
 endif()
-
-# Instalación
-install(TARGETS lacueva-multistream
-    LIBRARY DESTINATION "${OBS_PLUGIN_DESTINATION}"
-    RUNTIME DESTINATION "${OBS_PLUGIN_DESTINATION}"
-)
-
-# Copiar archivos de idioma (data/locale)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/locale"
-    DESTINATION "${OBS_DATA_DESTINATION}/lacueva-multistream"
-)

@@ -21,13 +21,54 @@ jobs:
           arch: 'win64_msvc2019_64'
           cache: false
 
-      - name: "Descargar SDK de OBS Studio"
+      - name: "Descargar Headers oficiales de OBS Studio"
         shell: pwsh
         run: |
-          Write-Host "Descargando entorno base de OBS Studio..."
+          Write-Host "Clonando headers de OBS Studio v30.1.2..."
+          git clone --depth 1 --branch 30.1.2 https://github.com/obsproject/obs-studio.git C:/obs-studio-src
+          Write-Host "Headers listos."
+
+      - name: "Descargar Binarios oficiales de OBS Studio"
+        shell: pwsh
+        run: |
+          Write-Host "Descargando binarios precompilados..."
           Invoke-WebRequest -Uri "https://github.com/obsproject/obs-studio/releases/download/30.1.2/OBS-Studio-30.1.2.zip" -OutFile "obs.zip"
-          Expand-Archive -Path "obs.zip" -DestinationPath "C:\obs-studio"
-          Write-Host "OBS Studio listo para enlazar."
+          Expand-Archive -Path "obs.zip" -DestinationPath "C:/obs-studio-bin"
+          Write-Host "Binarios listos en C:/obs-studio-bin"
+
+      - name: "Generar Librerias de Enlace para MSVC (.lib)"
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath
+          $dumpbin = Get-ChildItem -Path "$vsPath\VC\Tools\MSVC" -Filter "dumpbin.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          $libTool = Get-ChildItem -Path "$vsPath\VC\Tools\MSVC" -Filter "lib.exe" -Recurse | Where-Object { $_.FullName -like "*\x64\lib.exe" } | Select-Object -First 1 -ExpandProperty FullName
+
+          $binDir = "C:\obs-studio-bin\bin\64bit"
+
+          # Generar obs.lib
+          & $dumpbin /EXPORTS "$binDir\obs.dll" | Out-File -Encoding ascii "$binDir\obs.exports"
+          $lines = @("EXPORTS")
+          Get-Content "$binDir\obs.exports" | ForEach-Object {
+              if ($_ -match '^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)') {
+                  $lines += $matches[1]
+              }
+          }
+          $lines | Set-Content -Encoding ascii "$binDir\obs.def"
+          & $libTool /def:"$binDir\obs.def" /out:"$binDir\obs.lib" /machine:x64
+
+          # Generar obs-frontend-api.lib
+          & $dumpbin /EXPORTS "$binDir\obs-frontend-api.dll" | Out-File -Encoding ascii "$binDir\frontend.exports"
+          $lines = @("EXPORTS")
+          Get-Content "$binDir\frontend.exports" | ForEach-Object {
+              if ($_ -match '^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)') {
+                  $lines += $matches[1]
+              }
+          }
+          $lines | Set-Content -Encoding ascii "$binDir\obs-frontend-api.def"
+          & $libTool /def:"$binDir\obs-frontend-api.def" /out:"$binDir\obs-frontend-api.lib" /machine:x64
+
+          Write-Host "Librerias obs.lib y obs-frontend-api.lib generadas con exito."
 
       - name: "Configurar con CMake"
         shell: pwsh
@@ -35,7 +76,8 @@ jobs:
           cmake -B build -S . `
             -DCMAKE_BUILD_TYPE=Release `
             -DQt6_DIR="${{ env.Qt6_DIR }}/lib/cmake/Qt6" `
-            -Dlibobs_DIR="C:/obs-studio/cmake"
+            -DOBS_SRC_DIR="C:/obs-studio-src" `
+            -DOBS_BIN_DIR="C:/obs-studio-bin/bin/64bit"
 
       - name: "Compilar DLL del Plugin"
         shell: pwsh
