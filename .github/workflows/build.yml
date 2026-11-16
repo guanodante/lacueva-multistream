@@ -73,6 +73,9 @@ jobs:
       - name: "Configurar con CMake"
         shell: pwsh
         run: |
+          if (Test-Path "build") {
+              Remove-Item -Path "build" -Recurse -Force
+          }
           cmake -B build -S . `
             -DCMAKE_BUILD_TYPE=Release `
             -DQt6_DIR="${{ env.Qt6_DIR }}/lib/cmake/Qt6" `
