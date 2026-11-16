@@ -8,6 +8,13 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+add_compile_definitions(
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+    _CRT_SECURE_NO_WARNINGS
+    _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+)
+
 # Encontrar Qt (OBS 28+ utiliza Qt 6 por defecto)
 find_package(Qt6 COMPONENTS Core Widgets Gui REQUIRED)
 set(QT_TARGET_LIBS Qt6::Core Qt6::Widgets Qt6::Gui)

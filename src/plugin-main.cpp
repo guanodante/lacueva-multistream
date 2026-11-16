@@ -6,6 +6,10 @@
  * @copyright 2026 La Cueva del Dolor
  */
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QMainWindow>
@@ -28,10 +32,6 @@ MODULE_EXPORT const char *obs_module_description(void) {
            "con optimización extrema de recursos de CPU y GPU.";
 }
 
-MODULE_EXPORT const char *obs_module_ver(void) {
-    return "1.0.0";
-}
-
 bool obs_module_load(void) {
     blog(LOG_INFO, "==========================================================");
     blog(LOG_INFO, "[CuevaMultiStream] Cargando plugin v1.0.0 (La Cueva del Dolor)...");
@@ -47,7 +47,7 @@ bool obs_module_load(void) {
     }
 
     // 3. Iniciar monitor de hardware
-    CuevaMultiStream::ResourceMonitor::instance().start();
+    ResourceMonitor::instance().start();
 
     // 4. Integrar el dock en la interfaz de OBS Studio
     QMainWindow *mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
@@ -67,7 +67,7 @@ void obs_module_unload(void) {
     blog(LOG_INFO, "[CuevaMultiStream] Descargando plugin y liberando recursos...");
 
     // Detener monitor
-    CuevaMultiStream::ResourceMonitor::instance().stop();
+    ResourceMonitor::instance().stop();
 
     // Detener salidas y liberar encoders
     CuevaMultiStream::MultiOutputManager::instance().shutdown();

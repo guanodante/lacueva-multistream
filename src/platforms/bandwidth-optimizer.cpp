@@ -10,6 +10,17 @@
  * @copyright 2026 La Cueva del Dolor
  */
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+#include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
+#endif
+
 #include "bandwidth-optimizer.h"
 #include <obs-module.h>
 #include <util/base.h>

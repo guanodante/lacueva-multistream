@@ -11,6 +11,10 @@
  * @copyright 2026 La Cueva del Dolor
  */
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "resource-monitor.h"
 #include <obs-module.h>
 #include <util/base.h>
@@ -18,6 +22,7 @@
 #include <cmath>
 
 #ifdef _WIN32
+#include <winsock2.h>
 #include <Windows.h>
 #include <Psapi.h>
 #include <iphlpapi.h>
@@ -175,16 +180,36 @@ double ResourceMonitor::getMemoryUsage() const
     return latestSnapshot_.memoryUsagePercent;
 }
 
+double ResourceMonitor::getRamUsage()
+{
+    return getMemoryUsage();
+}
+
 double ResourceMonitor::getNetworkUsage() const
 {
     std::lock_guard<std::mutex> lock(dataMutex_);
     return latestSnapshot_.networkUploadMbps;
 }
 
+double ResourceMonitor::getNetworkUploadMbps()
+{
+    return getNetworkUsage();
+}
+
 ResourceSnapshot ResourceMonitor::getLatestSnapshot() const
 {
     std::lock_guard<std::mutex> lock(dataMutex_);
     return latestSnapshot_;
+}
+
+ResourceSnapshot ResourceMonitor::getSnapshot()
+{
+    return getLatestSnapshot();
+}
+
+EncoderType ResourceMonitor::recommendEncoder()
+{
+    return recommendEncoderType();
 }
 
 // ============================================================================
