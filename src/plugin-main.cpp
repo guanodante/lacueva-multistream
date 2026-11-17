@@ -10,6 +10,7 @@
 #define NOMINMAX
 #endif
 
+#include <windows.h>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QMainWindow>
@@ -32,18 +33,48 @@ MODULE_EXPORT const char *obs_module_description(void) {
            "con optimización extrema de recursos de CPU y GPU.";
 }
 
+// Tipos de función para resolución dinámica según la versión de OBS Studio
+typedef bool (*fn_obs_frontend_add_custom_qdock)(const char *id, void *dock);
+typedef void *(*fn_obs_frontend_add_dock)(void *dock);
+
 // Callback oficial de OBS Frontend: se ejecuta cuando la ventana de OBS ya existe
 static void on_frontend_event(enum obs_frontend_event event, void *private_data) {
     UNUSED_PARAMETER(private_data);
 
     if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
-        blog(LOG_INFO, "[CuevaMultiStream] OBS termino de cargar. Creando panel dock...");
+        blog(LOG_INFO, "[CuevaMultiStream] OBS terminó de cargar. Creando panel dock...");
 
         QMainWindow *mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
         if (mainWindow && !s_dock) {
             s_dock = new CuevaMultiStream::MultiStreamDock(mainWindow);
-            obs_frontend_add_dock(s_dock);
-            blog(LOG_INFO, "[CuevaMultiStream] Panel 'La Cueva MultiStream' anclado con éxito en OBS Studio.");
+
+            // Vinculación dinámica: compatible con OBS 28, 29, 30, 31, 32 y 33+
+            // Evita el error de símbolo no encontrado (Error 127) en versiones donde obs_frontend_add_dock fue retirado
+            HMODULE hFrontend = GetModuleHandleW(L"obs-frontend-api.dll");
+            bool dockAdded = false;
+
+            if (hFrontend) {
+                fn_obs_frontend_add_custom_qdock add_custom = 
+                    (fn_obs_frontend_add_custom_qdock)GetProcAddress(hFrontend, "obs_frontend_add_custom_qdock");
+                if (add_custom) {
+                    dockAdded = add_custom("lacueva_multistream_dock", s_dock);
+                    blog(LOG_INFO, "[CuevaMultiStream] Dock anclado con éxito vía obs_frontend_add_custom_qdock (OBS 30+).");
+                } else {
+                    fn_obs_frontend_add_dock add_legacy = 
+                        (fn_obs_frontend_add_dock)GetProcAddress(hFrontend, "obs_frontend_add_dock");
+                    if (add_legacy) {
+                        add_legacy(s_dock);
+                        dockAdded = true;
+                        blog(LOG_INFO, "[CuevaMultiStream] Dock anclado con éxito vía obs_frontend_add_dock (Legacy).");
+                    }
+                }
+            }
+
+            if (dockAdded) {
+                blog(LOG_INFO, "[CuevaMultiStream] Panel 'La Cueva MultiStream' activo y disponible en el menú Paneles.");
+            } else {
+                blog(LOG_WARNING, "[CuevaMultiStream] No se pudo anclar el dock mediante la API de OBS.");
+            }
         }
 
         // Iniciar monitor de recursos una vez que el sistema está listo
