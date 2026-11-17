@@ -97,6 +97,8 @@ jobs:
           }
           Write-Host "DLL compilada con éxito en: $($dllFile.FullName)"
           Copy-Item $dllFile.FullName "lacueva-multistream.dll" -Force
+          Copy-Item $dllFile.FullName "installer/lacueva-multistream.dll" -Force
+          Copy-Item "data" "installer/" -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: "Instalar Herramienta NSIS"
         shell: pwsh
@@ -129,6 +131,7 @@ jobs:
         with:
           name: LaCuevaMultiStream_Instalador_x64
           path: |
-            LaCuevaMultiStream_Installer_x64.exe
+            *.exe
+            installer/*.exe
             LaCuevaMultiStream_Manual_x64.zip
             lacueva-multistream.dll
