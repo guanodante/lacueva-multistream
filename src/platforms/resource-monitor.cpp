@@ -180,36 +180,16 @@ double ResourceMonitor::getMemoryUsage() const
     return latestSnapshot_.memoryUsagePercent;
 }
 
-double ResourceMonitor::getRamUsage()
-{
-    return getMemoryUsage();
-}
-
 double ResourceMonitor::getNetworkUsage() const
 {
     std::lock_guard<std::mutex> lock(dataMutex_);
     return latestSnapshot_.networkUploadMbps;
 }
 
-double ResourceMonitor::getNetworkUploadMbps()
-{
-    return getNetworkUsage();
-}
-
 ResourceSnapshot ResourceMonitor::getLatestSnapshot() const
 {
     std::lock_guard<std::mutex> lock(dataMutex_);
     return latestSnapshot_;
-}
-
-ResourceSnapshot ResourceMonitor::getSnapshot()
-{
-    return getLatestSnapshot();
-}
-
-EncoderType ResourceMonitor::recommendEncoder()
-{
-    return recommendEncoderType();
 }
 
 // ============================================================================

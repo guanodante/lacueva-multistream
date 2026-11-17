@@ -32,22 +32,45 @@ enum class EncoderType {
 const char *encoderTypeToString(EncoderType type);
 const char *encoderTypeToObsId(EncoderType type);
 
+enum class ResourceWarningLevel {
+    Normal = 0,
+    Elevated,
+    High,
+    Critical
+};
+
+struct ResourceWarning {
+    ResourceWarningLevel level = ResourceWarningLevel::Normal;
+    std::string resourceName;
+    std::string message;
+    double currentValue = 0.0;
+    double thresholdValue = 0.0;
+};
+
 struct ResourceSnapshot {
     double cpuUsagePercent = 0.0;
     int cpuCoreCount = 0;
-    double gpuUsagePercent = 0.0;
+    double gpuUsagePercent = -1.0;
     std::string gpuName;
-    double ramUsagePercent = 0.0;
-    uint64_t ramUsedBytes = 0;
-    uint64_t ramTotalBytes = 0;
-    double networkUploadBps = 0.0;
-    double networkDownloadBps = 0.0;
+    bool gpuAvailable = false;
+    double memoryUsagePercent = 0.0;
+    uint64_t totalMemoryMB = 0;
+    uint64_t availableMemoryMB = 0;
+    uint64_t usedMemoryMB = 0;
+    double networkUploadMbps = 0.0;
+    double networkDownloadMbps = 0.0;
+    uint64_t bytesSentTotal = 0;
+    uint64_t bytesReceivedTotal = 0;
     EncoderType recommendedEncoder = EncoderType::Software_x264;
-    std::chrono::system_clock::time_point timestamp;
+    std::string recommendationReason;
+    std::chrono::steady_clock::time_point timestamp;
 };
 
 class ResourceMonitor {
 public:
+    using WarningCallback = std::function<void(const ResourceWarning &)>;
+    using SnapshotCallback = std::function<void(const ResourceSnapshot &)>;
+
     static ResourceMonitor &instance() {
         static ResourceMonitor s_inst;
         return s_inst;
@@ -62,29 +85,66 @@ public:
     void start();
     void stop();
     bool isRunning() const;
+    void setSampleInterval(int intervalMs);
 
-    ResourceSnapshot getSnapshot();
-    double getCpuUsage();
-    double getGpuUsage();
-    double getRamUsage();
-    double getNetworkUploadMbps();
+    double getCpuUsage() const;
+    double getGpuUsage() const;
+    double getMemoryUsage() const;
+    double getRamUsage() const { return getMemoryUsage(); }
+    double getNetworkUsage() const;
+    double getNetworkUploadMbps() const { return getNetworkUsage(); }
 
-    EncoderType recommendEncoder();
+    ResourceSnapshot getLatestSnapshot() const;
+    ResourceSnapshot getSnapshot() const { return getLatestSnapshot(); }
 
-    void setWarningCallback(std::function<void(const std::string &)> cb);
+    EncoderType recommendEncoderType() const;
+    EncoderType recommendEncoder() const { return recommendEncoderType(); }
+    std::string getRecommendationReason() const;
+
+    std::vector<ResourceWarning> getActiveWarnings() const;
+    ResourceWarningLevel getHighestWarningLevel() const;
+
+    void setWarningCallback(WarningCallback callback);
+    void setSnapshotCallback(SnapshotCallback callback);
+
+    static std::vector<EncoderType> detectAvailableEncoders();
+    static bool isEncoderAvailable(EncoderType type);
 
 private:
-    void monitorLoop();
+    void monitorThreadFunc();
+    double sampleCpuUsage();
+    double sampleGpuUsage();
+    void sampleMemoryUsage(ResourceSnapshot &snapshot);
+    void sampleNetworkUsage(ResourceSnapshot &snapshot);
+    void evaluateWarnings(const ResourceSnapshot &snapshot);
 
+    int sampleIntervalMs_ = 2000;
     std::atomic<bool> running_{false};
-    std::thread workerThread_;
-    std::mutex snapshotMutex_;
+    std::thread monitorThread_;
+    mutable std::mutex dataMutex_;
+
     ResourceSnapshot latestSnapshot_;
-    std::function<void(const std::string &)> warningCallback_;
+    std::vector<ResourceWarning> activeWarnings_;
+    WarningCallback warningCallback_;
+    SnapshotCallback snapshotCallback_;
+
+    uint64_t prevIdleTime_ = 0;
+    uint64_t prevKernelTime_ = 0;
+    uint64_t prevUserTime_ = 0;
+
+    std::chrono::steady_clock::time_point prevNetworkSample_;
+    uint64_t prevBytesSent_ = 0;
+    uint64_t prevBytesReceived_ = 0;
+
+    std::chrono::steady_clock::time_point lastCpuWarning_;
+    std::chrono::steady_clock::time_point lastMemoryWarning_;
+    std::chrono::steady_clock::time_point lastGpuWarning_;
 };
 
 namespace CuevaMultiStream {
     using ResourceMonitor = ::ResourceMonitor;
     using EncoderType = ::EncoderType;
     using ResourceSnapshot = ::ResourceSnapshot;
+    using ResourceWarning = ::ResourceWarning;
+    using ResourceWarningLevel = ::ResourceWarningLevel;
 }
