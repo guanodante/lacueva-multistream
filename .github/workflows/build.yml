@@ -87,11 +87,31 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
 
+      - name: "Instalar Herramienta NSIS"
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          Write-Host "NSIS instalado en el runner."
+
       - name: "Generar Instalador Automático .exe (NSIS)"
         shell: pwsh
         run: |
-          makensis installer/installer.nsi
+          $nsisExe = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (-not (Test-Path $nsisExe)) {
+              $nsisExe = (Get-Command makensis.exe -ErrorAction SilentlyContinue).Source
+          }
+          & $nsisExe installer/installer.nsi
           Write-Host "Instalador generado con éxito."
+
+      - name: "Generar Paquete ZIP Portátil de Respaldo"
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "dist/obs-plugins/64bit" -Force
+          New-Item -ItemType Directory -Path "dist/data/obs-plugins/lacueva-multistream" -Force
+          Copy-Item "build/Release/lacueva-multistream.dll" "dist/obs-plugins/64bit/"
+          Copy-Item "data/locale" "dist/data/obs-plugins/lacueva-multistream/" -Recurse
+          Compress-Archive -Path "dist/*" -DestinationPath "LaCuevaMultiStream_Manual_x64.zip" -Force
+          Write-Host "ZIP portable creado con éxito."
 
       - name: "Publicar Instalador Propio de La Cueva"
         uses: actions/upload-artifact@v4
@@ -99,4 +119,5 @@ jobs:
           name: LaCuevaMultiStream_Instalador_x64
           path: |
             LaCuevaMultiStream_Installer_x64.exe
+            LaCuevaMultiStream_Manual_x64.zip
             build/Release/lacueva-multistream.dll
