@@ -97,8 +97,6 @@ jobs:
           }
           Write-Host "DLL compilada con éxito en: $($dllFile.FullName)"
           Copy-Item $dllFile.FullName "lacueva-multistream.dll" -Force
-          New-Item -ItemType Directory -Path "build/Release" -Force
-          Copy-Item $dllFile.FullName "build/Release/lacueva-multistream.dll" -Force
 
       - name: "Instalar Herramienta NSIS"
         shell: pwsh
