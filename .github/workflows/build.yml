@@ -87,6 +87,19 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
 
+      - name: "Localizar y Preparar Archivos DLL"
+        shell: pwsh
+        run: |
+          $dllFile = Get-ChildItem -Path "build" -Filter "lacueva-multistream.dll" -Recurse | Select-Object -First 1
+          if (-not $dllFile) {
+              Write-Host "Error: No se encontró la DLL compilada."
+              exit 1
+          }
+          Write-Host "DLL compilada con éxito en: $($dllFile.FullName)"
+          Copy-Item $dllFile.FullName "lacueva-multistream.dll" -Force
+          New-Item -ItemType Directory -Path "build/Release" -Force
+          Copy-Item $dllFile.FullName "build/Release/lacueva-multistream.dll" -Force
+
       - name: "Instalar Herramienta NSIS"
         shell: pwsh
         run: |
@@ -108,7 +121,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path "dist/obs-plugins/64bit" -Force
           New-Item -ItemType Directory -Path "dist/data/obs-plugins/lacueva-multistream" -Force
-          Copy-Item "build/Release/lacueva-multistream.dll" "dist/obs-plugins/64bit/"
+          Copy-Item "lacueva-multistream.dll" "dist/obs-plugins/64bit/"
           Copy-Item "data/locale" "dist/data/obs-plugins/lacueva-multistream/" -Recurse
           Compress-Archive -Path "dist/*" -DestinationPath "LaCuevaMultiStream_Manual_x64.zip" -Force
           Write-Host "ZIP portable creado con éxito."
@@ -120,4 +133,4 @@ jobs:
           path: |
             LaCuevaMultiStream_Installer_x64.exe
             LaCuevaMultiStream_Manual_x64.zip
-            build/Release/lacueva-multistream.dll
+            lacueva-multistream.dll

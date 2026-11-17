@@ -15,7 +15,7 @@ RequestExecutionLevel admin
 
 Section "Plugin Principal" SecPlugin
     SetOutPath "$INSTDIR\obs-plugins\64bit"
-    File "build\Release\lacueva-multistream.dll"
+    File "lacueva-multistream.dll"
 
     SetOutPath "$INSTDIR\data\obs-plugins\lacueva-multistream\locale"
     File /r "data\locale\*.*"
