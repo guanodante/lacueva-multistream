@@ -47,7 +47,7 @@ MultiStreamDock::~MultiStreamDock() {
 void MultiStreamDock::setupUI() {
     auto *centralWidget = new QWidget(this);
     auto *rootLayout = new QVBoxLayout(centralWidget);
-    rootLayout->setContentsMargins(6, 6, 6, 6);
+    rootLayout->setContentsMargins(4, 4, 4, 4);
     rootLayout->setSpacing(6);
 
     // 1. Barra de encabezado
@@ -63,7 +63,40 @@ void MultiStreamDock::setupUI() {
     headerLayout->addWidget(settingsBtn_);
     rootLayout->addLayout(headerLayout);
 
-    // 2. Área desplazable para las tarjetas de plataformas
+    // 2. TabWidget principal: Pestaña 1 (Multi-Destinos) y Pestaña 2 (Program Vertical 9:16)
+    tabWidget_ = new QTabWidget(this);
+    tabWidget_->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #2d2d38; background-color: #121218; border-radius: 6px; }"
+        "QTabBar::tab { background: #1f1f28; color: #a0a0b0; padding: 6px 12px; font-size: 11px; font-weight: bold; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+        "QTabBar::tab:selected { background: #2d2d3e; color: #ffffff; border-bottom: 2px solid #e67e22; }"
+    );
+
+    // ==========================================
+    // Pestaña 1: Transmisión Multiplataforma
+    // ==========================================
+    auto *tabMulti = new QWidget(this);
+    auto *multiLayout = new QVBoxLayout(tabMulti);
+    multiLayout->setContentsMargins(4, 4, 4, 4);
+    multiLayout->setSpacing(6);
+
+    // Selector Maestro de Formato (16:9 vs 9:16)
+    auto *masterFormatLayout = new QHBoxLayout();
+    auto *masterLbl = new QLabel("Modo Emisión:", this);
+    masterLbl->setStyleSheet("color: #888899; font-size: 11px; font-weight: bold;");
+
+    masterFormatCombo_ = new QComboBox(this);
+    masterFormatCombo_->addItem("🌐 Híbrido (16:9 y 9:16 por plataforma)", 0);
+    masterFormatCombo_->addItem("🖥️ Forzar Todas a 16:9 Horizontal", 1);
+    masterFormatCombo_->addItem("📱 Forzar Todas a 9:16 Vertical", 2);
+    masterFormatCombo_->setStyleSheet(
+        "QComboBox { background-color: #1a1a24; color: #f0f0f0; border: 1px solid #3d3d52; border-radius: 4px; padding: 3px 6px; font-size: 11px; font-weight: bold; }"
+    );
+
+    masterFormatLayout->addWidget(masterLbl);
+    masterFormatLayout->addWidget(masterFormatCombo_, 1);
+    multiLayout->addLayout(masterFormatLayout);
+
+    // Área desplazable para las tarjetas de plataformas
     auto *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
@@ -76,9 +109,33 @@ void MultiStreamDock::setupUI() {
     cardsContainer_->addStretch();
 
     scrollArea->setWidget(scrollContent);
-    rootLayout->addWidget(scrollArea, 1);
+    multiLayout->addWidget(scrollArea, 1);
 
-    // 3. Monitor de recursos en vivo
+    // Botones de inicio masivo
+    auto *actionsLayout = new QHBoxLayout();
+    startAllBtn_ = new QPushButton("▶ INICIAR TODAS", this);
+    startAllBtn_->setFixedHeight(34);
+    startAllBtn_->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; border-radius: 6px; font-size: 11px;");
+
+    stopAllBtn_ = new QPushButton("⏹ DETENER TODAS", this);
+    stopAllBtn_->setFixedHeight(34);
+    stopAllBtn_->setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; border-radius: 6px; font-size: 11px;");
+
+    actionsLayout->addWidget(startAllBtn_);
+    actionsLayout->addWidget(stopAllBtn_);
+    multiLayout->addLayout(actionsLayout);
+
+    tabWidget_->addTab(tabMulti, "📡 Canales RTMP");
+
+    // ==========================================
+    // Pestaña 2: Program Vertical (9:16)
+    // ==========================================
+    verticalWidget_ = new VerticalProgramWidget(this);
+    tabWidget_->addTab(verticalWidget_, "📱 Program Vertical");
+
+    rootLayout->addWidget(tabWidget_, 1);
+
+    // 3. Monitor de recursos en vivo inferior (compartido)
     auto *resourceFrame = new QFrame(this);
     resourceFrame->setStyleSheet("background-color: #181820; border-radius: 6px; padding: 4px;");
     auto *resLayout = new QVBoxLayout(resourceFrame);
@@ -108,26 +165,17 @@ void MultiStreamDock::setupUI() {
 
     rootLayout->addWidget(resourceFrame);
 
-    // 4. Botones globales de acción rápida
-    auto *actionsLayout = new QHBoxLayout();
-    startAllBtn_ = new QPushButton("▶ INICIAR TODAS", this);
-    startAllBtn_->setFixedHeight(36);
-    startAllBtn_->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; border-radius: 6px; font-size: 12px;");
-
-    stopAllBtn_ = new QPushButton("⏹ DETENER TODAS", this);
-    stopAllBtn_->setFixedHeight(36);
-    stopAllBtn_->setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; border-radius: 6px; font-size: 12px;");
-
-    actionsLayout->addWidget(startAllBtn_);
-    actionsLayout->addWidget(stopAllBtn_);
-    rootLayout->addLayout(actionsLayout);
-
     setWidget(centralWidget);
 
     // Conexiones de slots
     connect(startAllBtn_, &QPushButton::clicked, this, &MultiStreamDock::onStartAllClicked);
     connect(stopAllBtn_, &QPushButton::clicked, this, &MultiStreamDock::onStopAllClicked);
     connect(settingsBtn_, &QPushButton::clicked, this, &MultiStreamDock::onOpenSettingsClicked);
+    connect(masterFormatCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MultiStreamDock::onMasterFormatChanged);
+
+    connect(verticalWidget_, &VerticalProgramWidget::startVerticalRequested, this, &MultiStreamDock::onStartVerticalRequested);
+    connect(verticalWidget_, &VerticalProgramWidget::stopVerticalRequested, this, &MultiStreamDock::onStopVerticalRequested);
+}
 }
 
 void MultiStreamDock::loadPlatforms() {
@@ -191,12 +239,40 @@ void MultiStreamDock::onTestPlatformRequested(const std::string &platformId) {
                                  .arg(cfg.requiresRTMPS ? "RTMPS (Seguro)" : "RTMP Estándar"));
 }
 
+void MultiStreamDock::onMasterFormatChanged(int index) {
+    if (index == 1) { // Forzar todas a 16:9
+        for (auto &pair : platformWidgets_) {
+            pair.second->setFormatVertical(false);
+        }
+    } else if (index == 2) { // Forzar todas a 9:16
+        for (auto &pair : platformWidgets_) {
+            pair.second->setFormatVertical(true);
+        }
+    }
+}
+
+void MultiStreamDock::onStartVerticalRequested() {
+    bool ok = MultiOutputManager::instance().startVerticalOnly();
+    if (!ok && !MultiOutputManager::instance().isVerticalStreaming()) {
+        QMessageBox::warning(this, "Program Vertical",
+                             "No hay plataformas verticales habilitadas con Stream Key válida para iniciar.");
+    }
+}
+
+void MultiStreamDock::onStopVerticalRequested() {
+    MultiOutputManager::instance().stopVerticalOnly();
+}
+
 void MultiStreamDock::onTelemetryTimerTick() {
     MultiOutputManager::instance().updateTelemetry();
 
     for (const auto &pair : platformWidgets_) {
         auto telem = MultiOutputManager::instance().getTelemetry(pair.first);
         pair.second->updateTelemetry(telem);
+    }
+
+    if (verticalWidget_) {
+        verticalWidget_->updateLiveStatus(MultiOutputManager::instance().isVerticalStreaming());
     }
 
     updateResourceBar();

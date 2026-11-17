@@ -56,6 +56,8 @@ set(PLUGIN_SOURCES
     src/ui/multistream-dock.cpp
     src/ui/status-widget.h
     src/ui/status-widget.cpp
+    src/ui/vertical-program-widget.h
+    src/ui/vertical-program-widget.cpp
     src/ui/settings-dialog.h
     src/ui/settings-dialog.cpp
 )

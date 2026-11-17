@@ -106,6 +106,21 @@ public:
     bool startAllEnabled();
 
     /**
+     * @brief Inicia la transmisión únicamente en las plataformas configuradas como Vertical (9:16).
+     */
+    bool startVerticalOnly();
+
+    /**
+     * @brief Detiene la transmisión en las plataformas Verticales (9:16).
+     */
+    void stopVerticalOnly();
+
+    /**
+     * @brief Inicia la transmisión únicamente en las plataformas configuradas como Horizontal (16:9).
+     */
+    bool startHorizontalOnly();
+
+    /**
      * @brief Detiene todas las transmisiones activas.
      */
     void stopAll();
@@ -114,6 +129,16 @@ public:
      * @brief Consulta si al menos una salida está transmitiendo.
      */
     bool isAnyStreaming() const;
+
+    /**
+     * @brief Consulta si alguna salida en formato Vertical (9:16) está transmitiendo.
+     */
+    bool isVerticalStreaming() const;
+
+    /**
+     * @brief Consulta si alguna salida en formato Horizontal (16:9) está transmitiendo.
+     */
+    bool isHorizontalStreaming() const;
 
     /**
      * @brief Consulta el estado actual de una plataforma específica.
@@ -145,7 +170,7 @@ private:
     ~MultiOutputManager();
 
     // Gestión de encoders compartidos
-    bool ensureSharedEncoders(int baseBitrateKbps, int audioBitrateKbps);
+    bool ensureSharedEncoders(bool isVertical, int baseBitrateKbps, int audioBitrateKbps);
     void releaseSharedEncodersIfUnused();
 
     // Creación de salida OBS
@@ -164,7 +189,8 @@ private:
     mutable std::mutex mutex_;
     std::unordered_map<std::string, StreamOutputContext> outputs_;
 
-    obs_encoder_t *sharedVideoEncoder_ = nullptr;
+    obs_encoder_t *sharedHorizontalEncoder_ = nullptr;
+    obs_encoder_t *sharedVerticalEncoder_ = nullptr;
     obs_encoder_t *sharedAudioEncoder_ = nullptr;
     std::string preferredVideoEncoderId_;
 

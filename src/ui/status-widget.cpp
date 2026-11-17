@@ -86,6 +86,32 @@ void StatusWidget::setupUI() {
 
     cardLayout->addLayout(headerLayout);
 
+    // Fila de Formato de Transmisión (16:9 Horizontal vs 9:16 Vertical)
+    auto *formatLayout = new QHBoxLayout();
+    auto *formatLbl = new QLabel("Formato:", this);
+    formatLbl->setFixedWidth(50);
+    formatLbl->setStyleSheet("color: #a0a0b8; font-size: 11px; font-weight: bold;");
+
+    formatCombo_ = new QComboBox(this);
+    formatCombo_->addItem("🖥️ 16:9 Horizontal (1920x1080)", false);
+    formatCombo_->addItem("📱 9:16 Vertical (1080x1920)", true);
+    formatCombo_->setCurrentIndex(config_.isVertical ? 1 : 0);
+    formatCombo_->setStyleSheet(
+        "QComboBox { background-color: #121216; color: #e0e0e0; border: 1px solid #333344; border-radius: 4px; padding: 3px 6px; font-size: 11px; font-weight: bold; }"
+        "QComboBox QAbstractItemView { background-color: #1a1a22; color: white; selection-background-color: #8e44ad; }"
+    );
+
+    auto *badgeAspect = new QLabel(config_.isVertical ? "VERTICAL" : "HORIZONTAL", this);
+    badgeAspect->setStyleSheet(config_.isVertical ? 
+        "background-color: #8e44ad; color: white; border-radius: 3px; padding: 2px 5px; font-size: 9px; font-weight: bold;" :
+        "background-color: #2980b9; color: white; border-radius: 3px; padding: 2px 5px; font-size: 9px; font-weight: bold;"
+    );
+
+    formatLayout->addWidget(formatLbl);
+    formatLayout->addWidget(formatCombo_, 1);
+    formatLayout->addWidget(badgeAspect);
+    cardLayout->addLayout(formatLayout);
+
     // Fila de URL de servidor
     auto *urlLayout = new QHBoxLayout();
     auto *urlLbl = new QLabel("URL:", this);
@@ -135,6 +161,7 @@ void StatusWidget::setupUI() {
 
     // Conexiones de eventos
     connect(enableCheck_, &QCheckBox::toggled, this, &StatusWidget::onFieldsEdited);
+    connect(formatCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &StatusWidget::onFormatChanged);
     connect(serverInput_, &QLineEdit::textChanged, this, &StatusWidget::onFieldsEdited);
     connect(keyInput_, &QLineEdit::textChanged, this, &StatusWidget::onFieldsEdited);
     connect(showKeyBtn_, &QPushButton::clicked, this, &StatusWidget::onKeyVisibilityToggled);
@@ -142,6 +169,36 @@ void StatusWidget::setupUI() {
     connect(testBtn_, &QPushButton::clicked, this, [this]() {
         emit testRequested(config_.id);
     });
+}
+
+void StatusWidget::onFormatChanged(int) {
+    bool isVert = formatCombo_->currentData().toBool();
+    config_.isVertical = isVert;
+    if (isVert) {
+        config_.width = 1080;
+        config_.height = 1920;
+    } else {
+        config_.width = 1920;
+        config_.height = 1080;
+    }
+    emit configChanged(config_);
+}
+
+void StatusWidget::setFormatVertical(bool isVertical) {
+    if (formatCombo_) {
+        formatCombo_->blockSignals(true);
+        formatCombo_->setCurrentIndex(isVertical ? 1 : 0);
+        formatCombo_->blockSignals(false);
+    }
+    config_.isVertical = isVertical;
+    if (isVertical) {
+        config_.width = 1080;
+        config_.height = 1920;
+    } else {
+        config_.width = 1920;
+        config_.height = 1080;
+    }
+    emit configChanged(config_);
 }
 
 void StatusWidget::onKeyVisibilityToggled() {

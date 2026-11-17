@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QLineEdit>
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QTimer>
@@ -31,6 +32,7 @@ public:
     PlatformConfig getConfig() const;
     void updateTelemetry(const OutputTelemetry &telemetry);
     void setStatus(OutputStatus status, const std::string &msg);
+    void setFormatVertical(bool isVertical);
 
 signals:
     void configChanged(const PlatformConfig &cfg);
@@ -42,6 +44,7 @@ private slots:
     void onToggleStreamClicked();
     void onKeyVisibilityToggled();
     void onFieldsEdited();
+    void onFormatChanged(int index);
 
 private:
     void setupUI();
@@ -55,6 +58,7 @@ private:
     QLabel *platformIcon_ = nullptr;
     QLabel *nameLabel_ = nullptr;
     QLabel *statusBadge_ = nullptr;
+    QComboBox *formatCombo_ = nullptr;
     QLineEdit *serverInput_ = nullptr;
     QLineEdit *keyInput_ = nullptr;
     QPushButton *showKeyBtn_ = nullptr;

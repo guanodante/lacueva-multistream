@@ -60,9 +60,14 @@ void MultiOutputManager::shutdown() {
     }
     outputs_.clear();
 
-    if (sharedVideoEncoder_) {
-        obs_encoder_release(sharedVideoEncoder_);
-        sharedVideoEncoder_ = nullptr;
+    if (sharedHorizontalEncoder_) {
+        obs_encoder_release(sharedHorizontalEncoder_);
+        sharedHorizontalEncoder_ = nullptr;
+    }
+
+    if (sharedVerticalEncoder_) {
+        obs_encoder_release(sharedVerticalEncoder_);
+        sharedVerticalEncoder_ = nullptr;
     }
 
     if (sharedAudioEncoder_) {
@@ -98,38 +103,66 @@ void MultiOutputManager::removePlatform(const std::string &platformId) {
     }
 }
 
-bool MultiOutputManager::ensureSharedEncoders(int baseBitrateKbps, int audioBitrateKbps) {
-    if (!sharedVideoEncoder_) {
-        obs_data_t *vsettings = obs_data_create();
-        obs_data_set_int(vsettings, "bitrate", baseBitrateKbps);
-        obs_data_set_string(vsettings, "rate_control", "CBR");
-        obs_data_set_int(vsettings, "keyint_sec", 2); // 2 segundos universal
-        obs_data_set_string(vsettings, "preset", "veryfast");
-        obs_data_set_string(vsettings, "profile", "high");
-        obs_data_set_bool(vsettings, "psycho_aq", true);
+bool MultiOutputManager::ensureSharedEncoders(bool isVertical, int baseBitrateKbps, int audioBitrateKbps) {
+    if (isVertical) {
+        if (!sharedVerticalEncoder_) {
+            obs_data_t *vsettings = obs_data_create();
+            obs_data_set_int(vsettings, "bitrate", baseBitrateKbps > 0 ? baseBitrateKbps : 4000);
+            obs_data_set_string(vsettings, "rate_control", "CBR");
+            obs_data_set_int(vsettings, "keyint_sec", 2);
+            obs_data_set_string(vsettings, "preset", "veryfast");
+            obs_data_set_string(vsettings, "profile", "high");
+            obs_data_set_bool(vsettings, "psycho_aq", true);
 
-        sharedVideoEncoder_ = obs_video_encoder_create(
-            preferredVideoEncoderId_.c_str(),
-            "cueva_shared_vencoder",
-            vsettings,
-            nullptr
-        );
-        obs_data_release(vsettings);
+            sharedVerticalEncoder_ = obs_video_encoder_create(
+                preferredVideoEncoderId_.c_str(),
+                "cueva_shared_vencoder_vertical",
+                vsettings,
+                nullptr
+            );
+            obs_data_release(vsettings);
 
-        if (!sharedVideoEncoder_) {
-            blog(LOG_ERROR, "[CuevaMultiStream] ERROR CRÍTICO: No se pudo instanciar el encoder de video compartido %s",
-                 preferredVideoEncoderId_.c_str());
-            return false;
+            if (!sharedVerticalEncoder_) {
+                blog(LOG_ERROR, "[CuevaMultiStream] Error al crear encoder compartido VERTICAL (9:16)");
+                return false;
+            }
+
+            obs_encoder_set_video(sharedVerticalEncoder_, obs_get_video());
+            blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido VERTICAL (9:16) creado con éxito (%s @ %d kbps)",
+                 preferredVideoEncoderId_.c_str(), baseBitrateKbps);
         }
+    } else {
+        if (!sharedHorizontalEncoder_) {
+            obs_data_t *vsettings = obs_data_create();
+            obs_data_set_int(vsettings, "bitrate", baseBitrateKbps > 0 ? baseBitrateKbps : 4500);
+            obs_data_set_string(vsettings, "rate_control", "CBR");
+            obs_data_set_int(vsettings, "keyint_sec", 2);
+            obs_data_set_string(vsettings, "preset", "veryfast");
+            obs_data_set_string(vsettings, "profile", "high");
+            obs_data_set_bool(vsettings, "psycho_aq", true);
 
-        obs_encoder_set_video(sharedVideoEncoder_, obs_get_video());
-        blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido de video creado exitosamente (%s @ %d kbps)",
-             preferredVideoEncoderId_.c_str(), baseBitrateKbps);
+            sharedHorizontalEncoder_ = obs_video_encoder_create(
+                preferredVideoEncoderId_.c_str(),
+                "cueva_shared_vencoder_horizontal",
+                vsettings,
+                nullptr
+            );
+            obs_data_release(vsettings);
+
+            if (!sharedHorizontalEncoder_) {
+                blog(LOG_ERROR, "[CuevaMultiStream] Error al crear encoder compartido HORIZONTAL (16:9)");
+                return false;
+            }
+
+            obs_encoder_set_video(sharedHorizontalEncoder_, obs_get_video());
+            blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido HORIZONTAL (16:9) creado con éxito (%s @ %d kbps)",
+                 preferredVideoEncoderId_.c_str(), baseBitrateKbps);
+        }
     }
 
     if (!sharedAudioEncoder_) {
         obs_data_t *asettings = obs_data_create();
-        obs_data_set_int(asettings, "bitrate", audioBitrateKbps);
+        obs_data_set_int(asettings, "bitrate", audioBitrateKbps > 0 ? audioBitrateKbps : 128);
 
         sharedAudioEncoder_ = obs_audio_encoder_create(
             "ffmpeg_aac",
@@ -154,22 +187,45 @@ bool MultiOutputManager::ensureSharedEncoders(int baseBitrateKbps, int audioBitr
 }
 
 void MultiOutputManager::releaseSharedEncodersIfUnused() {
-    if (!isAnyStreaming()) {
-        if (sharedVideoEncoder_) {
-            obs_encoder_release(sharedVideoEncoder_);
-            sharedVideoEncoder_ = nullptr;
-            blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido de video liberado para ahorrar memoria.");
+    bool anyVertical = false;
+    bool anyHorizontal = false;
+
+    for (const auto &pair : outputs_) {
+        if (pair.second.output && obs_output_active(pair.second.output)) {
+            if (pair.second.config.isVertical) {
+                anyVertical = true;
+            } else {
+                anyHorizontal = true;
+            }
         }
-        if (sharedAudioEncoder_) {
-            obs_encoder_release(sharedAudioEncoder_);
-            sharedAudioEncoder_ = nullptr;
-            blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido de audio liberado para ahorrar memoria.");
-        }
+    }
+
+    if (!anyVertical && sharedVerticalEncoder_) {
+        obs_encoder_release(sharedVerticalEncoder_);
+        sharedVerticalEncoder_ = nullptr;
+        blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido VERTICAL liberado.");
+    }
+
+    if (!anyHorizontal && sharedHorizontalEncoder_) {
+        obs_encoder_release(sharedHorizontalEncoder_);
+        sharedHorizontalEncoder_ = nullptr;
+        blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido HORIZONTAL liberado.");
+    }
+
+    if (!anyVertical && !anyHorizontal && sharedAudioEncoder_) {
+        obs_encoder_release(sharedAudioEncoder_);
+        sharedAudioEncoder_ = nullptr;
+        blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido de audio liberado.");
     }
 }
 
 bool MultiOutputManager::createOutputForContext(StreamOutputContext &ctx) {
     if (ctx.output) return true;
+
+    // Asegurar encoder correspondiente (Vertical 9:16 o Horizontal 16:9)
+    if (!ensureSharedEncoders(ctx.config.isVertical, ctx.config.videoBitrate, ctx.config.audioBitrate)) {
+        return false;
+    }
 
     // 1. Servicio RTMP personalizado
     obs_data_t *serviceSettings = obs_data_create();
@@ -196,9 +252,9 @@ bool MultiOutputManager::createOutputForContext(StreamOutputContext &ctx) {
         return false;
     }
 
-    // 3. Vincular servicio y los encoders compartidos
+    // 3. Vincular servicio y el encoder adecuado (Vertical u Horizontal)
     obs_output_set_service(ctx.output, ctx.service);
-    obs_output_set_video_encoder(ctx.output, sharedVideoEncoder_);
+    obs_output_set_video_encoder(ctx.output, ctx.config.isVertical ? sharedVerticalEncoder_ : sharedHorizontalEncoder_);
     obs_output_set_audio_encoder(ctx.output, sharedAudioEncoder_, 0);
 
     // 4. Conectar señales de eventos
@@ -307,6 +363,68 @@ bool MultiOutputManager::startAllEnabled() {
     return anyStarted;
 }
 
+bool MultiOutputManager::startVerticalOnly() {
+    bool anyStarted = false;
+    std::vector<std::string> toStart;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto &pair : outputs_) {
+            if (pair.second.config.enabled && pair.second.config.isVertical) {
+                toStart.push_back(pair.first);
+            }
+        }
+    }
+
+    for (const auto &id : toStart) {
+        if (startPlatform(id)) {
+            anyStarted = true;
+        }
+    }
+
+    return anyStarted;
+}
+
+void MultiOutputManager::stopVerticalOnly() {
+    std::vector<std::string> toStop;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto &pair : outputs_) {
+            if (pair.second.config.isVertical && pair.second.output && obs_output_active(pair.second.output)) {
+                toStop.push_back(pair.first);
+            }
+        }
+    }
+
+    for (const auto &id : toStop) {
+        stopPlatform(id);
+    }
+
+    releaseSharedEncodersIfUnused();
+}
+
+bool MultiOutputManager::startHorizontalOnly() {
+    bool anyStarted = false;
+    std::vector<std::string> toStart;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto &pair : outputs_) {
+            if (pair.second.config.enabled && !pair.second.config.isVertical) {
+                toStart.push_back(pair.first);
+            }
+        }
+    }
+
+    for (const auto &id : toStart) {
+        if (startPlatform(id)) {
+            anyStarted = true;
+        }
+    }
+
+    return anyStarted;
+}
+
 void MultiOutputManager::stopAll() {
     std::vector<std::string> toStop;
     {
@@ -328,6 +446,24 @@ void MultiOutputManager::stopAll() {
 bool MultiOutputManager::isAnyStreaming() const {
     for (const auto &pair : outputs_) {
         if (pair.second.output && obs_output_active(pair.second.output)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MultiOutputManager::isVerticalStreaming() const {
+    for (const auto &pair : outputs_) {
+        if (pair.second.config.isVertical && pair.second.output && obs_output_active(pair.second.output)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MultiOutputManager::isHorizontalStreaming() const {
+    for (const auto &pair : outputs_) {
+        if (!pair.second.config.isVertical && pair.second.output && obs_output_active(pair.second.output)) {
             return true;
         }
     }

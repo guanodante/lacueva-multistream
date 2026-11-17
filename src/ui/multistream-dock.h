@@ -13,12 +13,15 @@
 #include <QLabel>
 #include <QProgressBar>
 #include <QScrollArea>
+#include <QTabWidget>
+#include <QComboBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTimer>
 #include <vector>
 #include <unordered_map>
 #include "status-widget.h"
+#include "vertical-program-widget.h"
 #include "../core/multi-output-manager.h"
 #include "../core/settings-manager.h"
 #include "../platforms/resource-monitor.h"
@@ -42,11 +45,18 @@ private slots:
     void onStopPlatformRequested(const std::string &platformId);
     void onTestPlatformRequested(const std::string &platformId);
     void onTelemetryTimerTick();
+    void onMasterFormatChanged(int index);
+    void onStartVerticalRequested();
+    void onStopVerticalRequested();
 
 private:
     void setupUI();
     void loadPlatforms();
     void updateResourceBar();
+
+    QTabWidget *tabWidget_ = nullptr;
+    VerticalProgramWidget *verticalWidget_ = nullptr;
+    QComboBox *masterFormatCombo_ = nullptr;
 
     QVBoxLayout *cardsContainer_ = nullptr;
     QPushButton *startAllBtn_ = nullptr;
