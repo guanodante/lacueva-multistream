@@ -305,8 +305,8 @@ bool MultiOutputManager::startPlatform(const std::string &platformId) {
         return false;
     }
 
-    // Asegurar encoder compartido
-    if (!ensureSharedEncoders(ctx.config.videoBitrate, ctx.config.audioBitrate)) {
+    // Asegurar encoder compartido (Vertical 9:16 u Horizontal 16:9)
+    if (!ensureSharedEncoders(ctx.config.isVertical, ctx.config.videoBitrate, ctx.config.audioBitrate)) {
         return false;
     }
 

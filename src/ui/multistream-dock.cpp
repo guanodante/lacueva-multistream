@@ -176,7 +176,6 @@ void MultiStreamDock::setupUI() {
     connect(verticalWidget_, &VerticalProgramWidget::startVerticalRequested, this, &MultiStreamDock::onStartVerticalRequested);
     connect(verticalWidget_, &VerticalProgramWidget::stopVerticalRequested, this, &MultiStreamDock::onStopVerticalRequested);
 }
-}
 
 void MultiStreamDock::loadPlatforms() {
     auto configs = SettingsManager::instance().getAllConfigs();
