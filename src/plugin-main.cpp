@@ -19,7 +19,7 @@
 #include "ui/multistream-dock.h"
 
 OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE("cueva-multistream", "es-ES")
+OBS_MODULE_USE_DEFAULT_LOCALE("lacueva-multistream", "es-ES")
 
 static CuevaMultiStream::MultiStreamDock *s_dock = nullptr;
 
@@ -32,47 +32,47 @@ MODULE_EXPORT const char *obs_module_description(void) {
            "con optimización extrema de recursos de CPU y GPU.";
 }
 
+// Callback oficial de OBS Frontend: se ejecuta cuando la ventana de OBS ya existe
+static void on_frontend_event(enum obs_frontend_event event, void *private_data) {
+    UNUSED_PARAMETER(private_data);
+
+    if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
+        blog(LOG_INFO, "[CuevaMultiStream] OBS termino de cargar. Creando panel dock...");
+
+        QMainWindow *mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
+        if (mainWindow && !s_dock) {
+            s_dock = new CuevaMultiStream::MultiStreamDock(mainWindow);
+            obs_frontend_add_dock(s_dock);
+            blog(LOG_INFO, "[CuevaMultiStream] Panel 'La Cueva MultiStream' anclado con éxito en OBS Studio.");
+        }
+
+        // Iniciar monitor de recursos una vez que el sistema está listo
+        ResourceMonitor::instance().start();
+    }
+}
+
 MODULE_EXPORT bool obs_module_load(void) {
     blog(LOG_INFO, "==========================================================");
     blog(LOG_INFO, "[CuevaMultiStream] Cargando plugin v1.0.0 (La Cueva del Dolor)...");
     blog(LOG_INFO, "==========================================================");
 
-    // 1. Cargar persistencia de configuraciones
+    // 1. Cargar configuraciones guardadas
     CuevaMultiStream::SettingsManager::instance().initialize();
 
-    // 2. Inicializar gestor de salidas múltiples
-    if (!CuevaMultiStream::MultiOutputManager::instance().initialize()) {
-        blog(LOG_ERROR, "[CuevaMultiStream] Error al inicializar MultiOutputManager");
-        return false;
-    }
+    // 2. Esperar a que OBS termine de dibujar su interfaz para inyectar el panel
+    obs_frontend_add_event_callback(on_frontend_event, nullptr);
 
-    // 3. Iniciar monitor de hardware
-    ResourceMonitor::instance().start();
-
-    // 4. Integrar el dock en la interfaz de OBS Studio
-    QMainWindow *mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
-    if (mainWindow) {
-        s_dock = new CuevaMultiStream::MultiStreamDock(mainWindow);
-        obs_frontend_add_dock(s_dock);
-        blog(LOG_INFO, "[CuevaMultiStream] Dock UI anclado exitosamente en OBS.");
-    } else {
-        blog(LOG_WARNING, "[CuevaMultiStream] No se pudo obtener la ventana principal de OBS para anclar el dock.");
-    }
-
-    blog(LOG_INFO, "[CuevaMultiStream] Plugin cargado y listo para transmitir.");
+    blog(LOG_INFO, "[CuevaMultiStream] Modulo registrado exitosamente.");
     return true;
 }
 
 MODULE_EXPORT void obs_module_unload(void) {
     blog(LOG_INFO, "[CuevaMultiStream] Descargando plugin y liberando recursos...");
 
-    // Detener monitor
+    obs_frontend_remove_event_callback(on_frontend_event, nullptr);
+
     ResourceMonitor::instance().stop();
-
-    // Detener salidas y liberar encoders
     CuevaMultiStream::MultiOutputManager::instance().shutdown();
-
-    // Guardar configuraciones finales
     CuevaMultiStream::SettingsManager::instance().save();
 
     s_dock = nullptr;
