@@ -39,12 +39,15 @@ enum class ResourceWarningLevel {
     Critical
 };
 
+static constexpr int WARNING_COOLDOWN_SEC = 30;
+
 struct ResourceWarning {
     ResourceWarningLevel level = ResourceWarningLevel::Normal;
     std::string resourceName;
     std::string message;
-    double currentValue = 0.0;
+    double currentUsage = 0.0;
     double thresholdValue = 0.0;
+    std::chrono::steady_clock::time_point timestamp;
 };
 
 struct ResourceSnapshot {
@@ -117,6 +120,7 @@ private:
     void sampleMemoryUsage(ResourceSnapshot &snapshot);
     void sampleNetworkUsage(ResourceSnapshot &snapshot);
     void evaluateWarnings(const ResourceSnapshot &snapshot);
+    void emitWarning(ResourceWarningLevel level, const std::string &resource, double usage, const std::string &message);
 
     int sampleIntervalMs_ = 2000;
     std::atomic<bool> running_{false};

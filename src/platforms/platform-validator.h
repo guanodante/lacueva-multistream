@@ -114,6 +114,8 @@ struct ConnectionTestResult {
 
 class PlatformValidator {
 public:
+    using ConnectionCallback = std::function<void(const ConnectionTestResult &)>;
+
     PlatformValidator();
     ~PlatformValidator();
 
@@ -146,8 +148,8 @@ public:
 
     static ValidationResult validateConfiguration(PlatformType type, const std::string &url, const std::string &key);
 
-    ConnectionTestResult testConnection(const std::string &url, const std::string &key, int timeoutMs = 5000);
-    std::future<ConnectionTestResult> testConnectionAsync(const std::string &url, const std::string &key, int timeoutMs = 5000);
+    void testConnection(const std::string &url, const std::string &key, ConnectionCallback callback);
+    ConnectionTestResult testConnectionSync(const std::string &url, const std::string &key, int timeoutMs = 5000);
 
     void cancelPendingTests();
     bool hasActiveTests() const;
