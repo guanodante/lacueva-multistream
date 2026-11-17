@@ -32,7 +32,7 @@ MODULE_EXPORT const char *obs_module_description(void) {
            "con optimización extrema de recursos de CPU y GPU.";
 }
 
-bool obs_module_load(void) {
+MODULE_EXPORT bool obs_module_load(void) {
     blog(LOG_INFO, "==========================================================");
     blog(LOG_INFO, "[CuevaMultiStream] Cargando plugin v1.0.0 (La Cueva del Dolor)...");
     blog(LOG_INFO, "==========================================================");
@@ -63,7 +63,7 @@ bool obs_module_load(void) {
     return true;
 }
 
-void obs_module_unload(void) {
+MODULE_EXPORT void obs_module_unload(void) {
     blog(LOG_INFO, "[CuevaMultiStream] Descargando plugin y liberando recursos...");
 
     // Detener monitor
