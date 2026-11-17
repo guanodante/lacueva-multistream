@@ -7,6 +7,7 @@
  */
 
 #include "multi-output-manager.h"
+#include "../platforms/canvas-bridge.h"
 #include <util/platform.h>
 #include <util/dstr.h>
 #include <algorithm>
@@ -127,7 +128,8 @@ bool MultiOutputManager::ensureSharedEncoders(bool isVertical, int baseBitrateKb
                 return false;
             }
 
-            obs_encoder_set_video(sharedVerticalEncoder_, obs_get_video());
+            video_t *vVert = CanvasBridge::instance().getVerticalVideo(1080, 1920);
+            obs_encoder_set_video(sharedVerticalEncoder_, vVert ? vVert : obs_get_video());
             blog(LOG_INFO, "[CuevaMultiStream] Encoder compartido VERTICAL (9:16) creado con éxito (%s @ %d kbps)",
                  preferredVideoEncoderId_.c_str(), baseBitrateKbps);
         }

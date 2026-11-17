@@ -52,6 +52,8 @@ set(PLUGIN_SOURCES
     src/platforms/bandwidth-optimizer.cpp
     src/platforms/resource-monitor.h
     src/platforms/resource-monitor.cpp
+    src/platforms/canvas-bridge.h
+    src/platforms/canvas-bridge.cpp
     src/ui/multistream-dock.h
     src/ui/multistream-dock.cpp
     src/ui/status-widget.h

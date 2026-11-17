@@ -72,6 +72,8 @@ private:
     void setupUI();
 
     VerticalScreenPreview *screenPreview_ = nullptr;
+    QComboBox *canvasSourceCombo_ = nullptr;
+    QLabel *canvasStatusLabel_ = nullptr;
     QComboBox *sceneCombo_ = nullptr;
     QComboBox *captureModeCombo_ = nullptr;
     QCheckBox *safeZonesCheck_ = nullptr;
@@ -84,6 +86,9 @@ private:
     QPushButton *quickGameBtn_ = nullptr;
     QPushButton *quickChatBtn_ = nullptr;
     QPushButton *quickBrbBtn_ = nullptr;
+
+private slots:
+    void onCanvasSourceChanged(int index);
 };
 
 } // namespace CuevaMultiStream

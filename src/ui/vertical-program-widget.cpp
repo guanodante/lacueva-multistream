@@ -7,6 +7,7 @@
  */
 
 #include "vertical-program-widget.h"
+#include "../platforms/canvas-bridge.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <obs-frontend-api.h>
@@ -174,6 +175,38 @@ void VerticalProgramWidget::setupUI() {
     headerLayout->addWidget(liveBadge_);
     boxLayout->addLayout(headerLayout);
 
+    // 1.5 Selector de Motor de Canvas Vertical (Aitum vs Canvas Propio)
+    auto *canvasModeLayout = new QVBoxLayout();
+    canvasModeLayout->setSpacing(2);
+
+    auto *canvasRow = new QHBoxLayout();
+    auto *canvasLbl = new QLabel("Lienzo Vertical:", this);
+    canvasLbl->setStyleSheet("color: #a0a0b0; font-size: 11px; font-weight: bold;");
+    canvasLbl->setFixedWidth(90);
+
+    canvasSourceCombo_ = new QComboBox(this);
+    bool aitumPresent = CanvasBridge::instance().isAitumVerticalAvailable();
+    canvasSourceCombo_->addItem(aitumPresent ? "🟢 Aitum Vertical (Conectado)" : "⚪ Aitum Vertical (No detectado)", 0);
+    canvasSourceCombo_->addItem("🎨 Canvas Propio de La Cueva (Escena Dedicada)", 1);
+    canvasSourceCombo_->addItem("🔍 Recorte 9:16 Inteligente (Escena Principal)", 2);
+    canvasSourceCombo_->setCurrentIndex(aitumPresent ? 0 : 1);
+    canvasSourceCombo_->setStyleSheet(
+        "QComboBox { background-color: #121218; color: #f0f0f0; border: 1px solid #333348; border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }"
+    );
+
+    canvasRow->addWidget(canvasLbl);
+    canvasRow->addWidget(canvasSourceCombo_, 1);
+    canvasModeLayout->addLayout(canvasRow);
+
+    canvasStatusLabel_ = new QLabel(aitumPresent ? 
+        "✔ Sincronizado con Aitum Vertical. Las salidas verticales recibirán su composición." :
+        "✔ Modo Canvas Propio activo. Asigna abajo la escena vertical que se emitirá.", this);
+    canvasStatusLabel_->setStyleSheet("color: #7f8c8d; font-size: 9px; padding-left: 2px;");
+    canvasStatusLabel_->setWordWrap(true);
+    canvasModeLayout->addWidget(canvasStatusLabel_);
+
+    boxLayout->addLayout(canvasModeLayout);
+
     // 2. Monitor Program Vertical Centrado
     auto *previewCenterLayout = new QHBoxLayout();
     previewCenterLayout->addStretch();
@@ -268,6 +301,7 @@ void VerticalProgramWidget::setupUI() {
     mainLayout->addWidget(box);
 
     // Conexiones de señales
+    connect(canvasSourceCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &VerticalProgramWidget::onCanvasSourceChanged);
     connect(sceneCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &VerticalProgramWidget::onSceneSelected);
     connect(refreshBtn_, &QPushButton::clicked, this, &VerticalProgramWidget::onRefreshClicked);
     connect(captureModeCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &VerticalProgramWidget::onCaptureModeChanged);
@@ -279,6 +313,25 @@ void VerticalProgramWidget::setupUI() {
 
     connect(startVerticalBtn_, &QPushButton::clicked, this, &VerticalProgramWidget::startVerticalRequested);
     connect(stopVerticalBtn_, &QPushButton::clicked, this, &VerticalProgramWidget::stopVerticalRequested);
+}
+
+void VerticalProgramWidget::onCanvasSourceChanged(int) {
+    auto mode = static_cast<VerticalCanvasSource>(canvasSourceCombo_->currentData().toInt());
+    CanvasBridge::instance().setVerticalSourceMode(mode);
+
+    if (mode == VerticalCanvasSource::AitumVertical) {
+        bool ok = CanvasBridge::instance().isAitumVerticalAvailable();
+        canvasStatusLabel_->setText(ok ?
+            "✔ Sincronizado con Aitum Vertical. Las salidas verticales recibirán su composición." :
+            "⚠ Aitum Vertical no detectado. Usando fallback propio.");
+        canvasStatusLabel_->setStyleSheet(ok ? "color: #2ecc71; font-size: 9px;" : "color: #e67e22; font-size: 9px;");
+    } else if (mode == VerticalCanvasSource::OwnSceneCanvas) {
+        canvasStatusLabel_->setText("✔ Canvas Propio activo. La escena seleccionada se emitirá en vertical de forma independiente.");
+        canvasStatusLabel_->setStyleSheet("color: #9b59b6; font-size: 9px; font-weight: bold;");
+    } else {
+        canvasStatusLabel_->setText("✔ Recorte 9:16 Inteligente activo sobre el lienzo principal horizontal.");
+        canvasStatusLabel_->setStyleSheet("color: #3498db; font-size: 9px;");
+    }
 }
 
 void VerticalProgramWidget::refreshSceneList() {
@@ -329,11 +382,13 @@ void VerticalProgramWidget::onSceneSelected(int index) {
         QString name = sceneCombo_->itemText(index);
         screenPreview_->setActiveScene(name);
 
-        // Cambiar la escena activa en OBS si el streamer la seleccionó
-        obs_source_t *scene = obs_get_source_by_name(name.toUtf8().constData());
-        if (scene) {
-            obs_frontend_set_current_scene(scene);
-            obs_source_release(scene);
+        VerticalCanvasSource mode = CanvasBridge::instance().getVerticalSourceMode();
+        if (mode == VerticalCanvasSource::AitumVertical) {
+            // Cambiar escena en Aitum Vertical directamente
+            CanvasBridge::instance().switchAitumVerticalScene(name.toStdString());
+        } else {
+            // Asignar escena dedicada para el Canvas Propio Vertical
+            CanvasBridge::instance().setDedicatedVerticalScene(name.toStdString());
         }
     }
 }

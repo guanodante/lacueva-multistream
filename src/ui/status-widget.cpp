@@ -86,25 +86,25 @@ void StatusWidget::setupUI() {
 
     cardLayout->addLayout(headerLayout);
 
-    // Fila de Formato de Transmisión (16:9 Horizontal vs 9:16 Vertical)
+    // Fila de Formato de Transmisión: Program Horizontal vs Program Vertical
     auto *formatLayout = new QHBoxLayout();
-    auto *formatLbl = new QLabel("Formato:", this);
-    formatLbl->setFixedWidth(50);
+    auto *formatLbl = new QLabel("Lienzo:", this);
+    formatLbl->setFixedWidth(45);
     formatLbl->setStyleSheet("color: #a0a0b8; font-size: 11px; font-weight: bold;");
 
     formatCombo_ = new QComboBox(this);
-    formatCombo_->addItem("🖥️ 16:9 Horizontal (1920x1080)", false);
-    formatCombo_->addItem("📱 9:16 Vertical (1080x1920)", true);
+    formatCombo_->addItem("🖥️ Program Horizontal (16:9)", false);
+    formatCombo_->addItem("📱 Program Vertical (9:16)", true);
     formatCombo_->setCurrentIndex(config_.isVertical ? 1 : 0);
     formatCombo_->setStyleSheet(
         "QComboBox { background-color: #121216; color: #e0e0e0; border: 1px solid #333344; border-radius: 4px; padding: 3px 6px; font-size: 11px; font-weight: bold; }"
         "QComboBox QAbstractItemView { background-color: #1a1a22; color: white; selection-background-color: #8e44ad; }"
     );
 
-    auto *badgeAspect = new QLabel(config_.isVertical ? "VERTICAL" : "HORIZONTAL", this);
+    auto *badgeAspect = new QLabel(config_.isVertical ? "PROGRAM VERTICAL" : "PROGRAM HORIZONTAL", this);
     badgeAspect->setStyleSheet(config_.isVertical ? 
-        "background-color: #8e44ad; color: white; border-radius: 3px; padding: 2px 5px; font-size: 9px; font-weight: bold;" :
-        "background-color: #2980b9; color: white; border-radius: 3px; padding: 2px 5px; font-size: 9px; font-weight: bold;"
+        "background-color: #8e44ad; color: white; border-radius: 3px; padding: 2px 5px; font-size: 8px; font-weight: bold;" :
+        "background-color: #2980b9; color: white; border-radius: 3px; padding: 2px 5px; font-size: 8px; font-weight: bold;"
     );
 
     formatLayout->addWidget(formatLbl);
