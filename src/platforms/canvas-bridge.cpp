@@ -55,7 +55,7 @@ video_t *CanvasBridge::getVerticalVideo(int width, int height) {
             calldata_set_int(&cd, "width", width);
             calldata_set_int(&cd, "height", height);
             if (proc_handler_call(ph, "aitum_vertical_get_video", &cd)) {
-                video_t *v = (video_t *)calldata_get_ptr(&cd, "video");
+                video_t *v = (video_t *)calldata_ptr(&cd, "video");
                 calldata_free(&cd);
                 if (v) {
                     blog(LOG_INFO, "[CuevaMultiStream] Video Vertical obtenido directamente de Aitum Vertical (%dx%d).", width, height);
@@ -97,7 +97,7 @@ std::string CanvasBridge::getAitumVerticalScene(int width, int height) {
 
     std::string res = "";
     if (proc_handler_call(ph, "aitum_vertical_get_scene", &cd)) {
-        const char *name = calldata_get_string(&cd, "scene");
+        const char *name = calldata_string(&cd, "scene");
         if (name) res = name;
     }
     calldata_free(&cd);
